@@ -217,10 +217,14 @@ class SmolCloudHandler(BaseHTTPRequestHandler):
 
         # Run setup script in container if provided (install CLIs, etc.)
         if setup_script and container:
+            print(f"[SmolCloud] Running setup script in {container} ({len(setup_script)} chars)")
             try:
-                cloud_exec(container, setup_script)
-            except:
-                pass
+                output = cloud_exec(container, setup_script)
+                print(f"[SmolCloud] Setup result: {output[:200]}")
+            except Exception as e:
+                print(f"[SmolCloud] Setup error: {e}")
+        else:
+            print(f"[SmolCloud] No setup script (script={bool(setup_script)}, container={container})")
 
         try:
             # Create model via OpenRouter
