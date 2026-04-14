@@ -243,7 +243,8 @@ class SmolCloudHandler(BaseHTTPRequestHandler):
 
             # Create agent with container-bound tools
             tools = make_tools(container)
-            agent = ToolCallingAgent(tools=tools, model=model, max_steps=12)
+            max_steps = body.get("max_steps", 50)
+            agent = ToolCallingAgent(tools=tools, model=model, max_steps=max_steps)
 
             # Set custom system prompt
             if system_prompt:
