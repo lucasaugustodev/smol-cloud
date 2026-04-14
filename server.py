@@ -70,26 +70,19 @@ def cloud_exec(container: str, command: str, timeout: int = 60) -> str:
 
 
 def cloud_read_file(container: str, path: str) -> str:
-    """Read file from container."""
+    """Read file from container via exec cat."""
     try:
-        url = f"{CLOUD_URL}/containers/{container}/files/download?path={urllib.parse.quote(path)}"
-        req = urllib.request.Request(url, headers={"x-api-key": CLOUD_SECRET})
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read())
-            content = data.get("content", "")
-            if len(content) > 50000:
-                content = content[:50000] + f"\n[truncated, {len(content)} total]"
-            return content or "(empty)"
+        return cloud_exec(container, f"cat {path} 2>&1")
     except Exception as e:
         return f"[read error: {e}]"
 
 
 def cloud_write_file(container: str, path: str, content: str) -> str:
-    """Write file to container."""
+    """Write file to container via upload endpoint."""
     try:
         data = json.dumps({"path": path, "content": content}).encode()
         req = urllib.request.Request(
-            f"{CLOUD_URL}/containers/{container}/files/upload",
+            f"{CLOUD_URL}/containers/{container}/upload",
             data=data,
             headers={"Content-Type": "application/json", "x-api-key": CLOUD_SECRET},
             method="POST",
@@ -97,7 +90,9 @@ def cloud_write_file(container: str, path: str, content: str) -> str:
         with urllib.request.urlopen(req, timeout=30) as resp:
             return f"Written to {path}"
     except Exception as e:
-        return f"[write error: {e}]"
+        # Fallback: use exec with heredoc
+        escaped = content.replace("'", "'\\''")
+        return cloud_exec(container, f"mkdir -p $(dirname {path}) && cat > {path} << 'AGENTEOF'\n{escaped}\nAGENTEOF")
 
 
 # ── Tool Factory (creates tools bound to a container) ──
