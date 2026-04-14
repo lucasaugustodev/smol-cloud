@@ -43,10 +43,13 @@ CLOUD_SECRET = os.environ.get("CLOUD_API_SECRET", "agentify-cloud-secret-2026")
 
 executor = ThreadPoolExecutor(max_workers=10)
 
+# Track containers that already ran their setup script (avoid re-running)
+_completed_setups: set = set()
+
 
 # ── Container Operations (via Cloud Manager API) ──
 
-def cloud_exec(container: str, command: str) -> str:
+def cloud_exec(container: str, command: str, timeout: int = 60) -> str:
     """Execute command in a container via Cloud Manager."""
     try:
         data = json.dumps({"command": command, "user": "root"}).encode()
@@ -56,7 +59,7 @@ def cloud_exec(container: str, command: str) -> str:
             headers={"Content-Type": "application/json", "x-api-key": CLOUD_SECRET},
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=60) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             result = json.loads(resp.read())
             output = result.get("output", "")
             if result.get("exit_code", 0) != 0:
@@ -216,15 +219,19 @@ class SmolCloudHandler(BaseHTTPRequestHandler):
         send_sse("run.started", {"type": "smol-cloud", "model": model_id})
 
         # Run setup script in container if provided (install CLIs, etc.)
-        if setup_script and container:
-            print(f"[SmolCloud] Running setup script in {container} ({len(setup_script)} chars)")
+        # Track which containers already ran setup to avoid re-running
+        setup_key = f"{container}:{hash(setup_script)}" if setup_script else ""
+        if setup_script and container and setup_key not in _completed_setups:
+            send_sse("agent.text", {"text": "_Preparando ambiente (instalando dependencias)..._\n\n"})
+            print(f"[SmolCloud] Running setup in {container} ({len(setup_script)} chars)")
             try:
-                output = cloud_exec(container, setup_script)
-                print(f"[SmolCloud] Setup result: {output[:200]}")
+                output = cloud_exec(container, setup_script, timeout=180)
+                print(f"[SmolCloud] Setup done: {output[:300]}")
+                _completed_setups.add(setup_key)
+                send_sse("agent.text", {"text": "_Ambiente pronto!_\n\n"})
             except Exception as e:
                 print(f"[SmolCloud] Setup error: {e}")
-        else:
-            print(f"[SmolCloud] No setup script (script={bool(setup_script)}, container={container})")
+                send_sse("agent.text", {"text": f"_Aviso: setup parcial ({e})_\n\n"})
 
         try:
             # Create model via OpenRouter
