@@ -21,7 +21,12 @@ import traceback
 import urllib.request
 import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from socketserver import ThreadingMixIn
 from concurrent.futures import ThreadPoolExecutor
+
+
+class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
+    daemon_threads = True
 
 try:
     from smolagents import ToolCallingAgent, tool
@@ -260,6 +265,6 @@ class SmolCloudHandler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     port = int(os.environ.get("SMOLAGENT_PORT", "8200"))
-    server = HTTPServer(("0.0.0.0", port), SmolCloudHandler)
+    server = ThreadingHTTPServer(("0.0.0.0", port), SmolCloudHandler)
     print(f"[SmolCloud] Managed Agents service running on port {port}")
     server.serve_forever()
