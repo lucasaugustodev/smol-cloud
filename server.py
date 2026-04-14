@@ -189,6 +189,7 @@ class SmolCloudHandler(BaseHTTPRequestHandler):
         system_prompt = body.get("system_prompt", "You are a helpful assistant. Respond in Portuguese.")
         user_input = body.get("input", "")
         container = body.get("container", "")
+        setup_script = body.get("setup_script", "")
 
         if not api_key or not user_input or not container:
             self.send_response(400)
@@ -214,6 +215,13 @@ class SmolCloudHandler(BaseHTTPRequestHandler):
 
         send_sse("run.started", {"type": "smol-cloud", "model": model_id})
 
+        # Run setup script in container if provided (install CLIs, etc.)
+        if setup_script and container:
+            try:
+                cloud_exec(container, setup_script)
+            except:
+                pass
+
         try:
             # Create model via OpenRouter
             model = OpenAIServerModel(
@@ -230,8 +238,11 @@ class SmolCloudHandler(BaseHTTPRequestHandler):
             if system_prompt:
                 agent.prompt_templates["system_prompt"] = (
                     system_prompt +
-                    "\n\nIMPORTANT: After getting tool results, provide your final answer immediately. "
-                    "Do NOT repeat tool calls. Use final_answer tool to respond."
+                    "\n\nIMPORTANT RULES:"
+                    "\n- ALWAYS respond in Portuguese (Brazilian Portuguese)."
+                    "\n- After getting tool results, provide your final answer immediately."
+                    "\n- Do NOT repeat tool calls. Use final_answer tool to respond."
+                    "\n- NEVER respond in Chinese, Japanese, or any language other than Portuguese."
                 )
 
             # Monkey-patch to stream tool calls
