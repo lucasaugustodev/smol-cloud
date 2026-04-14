@@ -46,12 +46,21 @@ executor = ThreadPoolExecutor(max_workers=10)
 # Track containers that already ran their setup script (avoid re-running)
 _completed_setups: set = set()
 
+# Per-container env vars (set from agent system_prompt, injected in every exec)
+_container_env: dict = {}  # container_name -> {"KEY": "value", ...}
+
 
 # ── Container Operations (via Cloud Manager API) ──
 
 def cloud_exec(container: str, command: str, timeout: int = 60) -> str:
     """Execute command in a container via Cloud Manager."""
     try:
+        # Prepend env vars for this container
+        env = _container_env.get(container, {})
+        if env:
+            exports = " && ".join(f"export {k}={v}" for k, v in env.items())
+            command = f"{exports} && {command}"
+
         data = json.dumps({"command": command, "user": "root"}).encode()
         req = urllib.request.Request(
             f"{CLOUD_URL}/containers/{container}/exec",
@@ -227,6 +236,14 @@ class SmolCloudHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 print(f"[SmolCloud] Setup error: {e}")
                 send_sse("agent.text", {"text": f"_Aviso: setup parcial ({e})_\n\n"})
+
+        # Extract env vars from system_prompt (lines with export KEY=VALUE or KEY=value patterns)
+        import re
+        env_pattern = re.compile(r'export\s+([A-Z_][A-Z0-9_]*)=([^\s\n]+)')
+        found_env = env_pattern.findall(system_prompt)
+        if found_env and container:
+            _container_env[container] = {k: v for k, v in found_env}
+            print(f"[SmolCloud] Injecting {len(found_env)} env vars for {container}: {[k for k,v in found_env]}")
 
         try:
             # Create model via OpenRouter
