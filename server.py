@@ -219,11 +219,15 @@ class SmolCloudHandler(BaseHTTPRequestHandler):
 
             # Create agent with container-bound tools
             tools = make_tools(container)
-            agent = ToolCallingAgent(tools=tools, model=model, max_steps=15)
+            agent = ToolCallingAgent(tools=tools, model=model, max_steps=6)
 
             # Set custom system prompt
             if system_prompt:
-                agent.prompt_templates["system_prompt"] = system_prompt
+                agent.prompt_templates["system_prompt"] = (
+                    system_prompt +
+                    "\n\nIMPORTANT: After getting tool results, provide your final answer immediately. "
+                    "Do NOT repeat tool calls. Use final_answer tool to respond."
+                )
 
             # Monkey-patch to stream tool calls
             original_execute = agent.execute_tool_call
