@@ -1,0 +1,60 @@
+services:
+  engine:
+    build: ./engine
+    ports:
+      - "8200:8200"
+    environment:
+      - CLOUD_API_URL=http://containers:9090
+      - CLOUD_API_SECRET=${AIC_SECRET}
+      - SMOLAGENT_PORT=8200
+    volumes:
+      - ./tools:/app/custom_tools
+    depends_on:
+      containers:
+        condition: service_healthy
+    restart: unless-stopped
+
+  gateway:
+    build: ./gateway
+    ports:
+      - "${AIC_PORT:-4000}:4000"
+    environment:
+      - ENGINE_URL=http://engine:8200
+      - CONTAINERS_URL=http://containers:9090
+      - AIC_SECRET=${AIC_SECRET}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - DATABASE_PATH=/data/agentsincloud.db
+    volumes:
+      - aic-data:/data
+      - ./templates:/app/templates:ro
+    depends_on:
+      engine:
+        condition: service_healthy
+    restart: unless-stopped
+
+  containers:
+    build: ./containers
+    ports:
+      - "9090:9090"
+    environment:
+      - AIC_SECRET=${AIC_SECRET}
+      - CONTAINERS_PORT=9090
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+  chat:
+    build: ./chat
+    ports:
+      - "3000:80"
+    depends_on:
+      - gateway
+    restart: unless-stopped
+
+volumes:
+  aic-data:

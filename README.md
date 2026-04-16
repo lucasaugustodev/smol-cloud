@@ -1,95 +1,57 @@
-# Smol Cloud Managed Agents
+# Agents in Cloud
 
-Centralized AI agent service powered by [smolagents](https://github.com/huggingface/smolagents) + [OpenRouter](https://openrouter.ai).
-
-Like Anthropic's Managed Agents, but open — uses any LLM via OpenRouter and executes tools in Docker containers via an external Container Manager API.
-
-## How it works
-
-```
-Client → POST /run (SSE stream)
-  ├── Creates smolagent with ToolCallingAgent
-  ├── LLM calls go to OpenRouter (any model)
-  ├── Tool calls (shell, files, web) execute in user's Docker container
-  └── Results stream back as SSE events
-```
+Open source AI agent infrastructure. Install with one command, get a production-ready agents API.
 
 ## Quick Start
 
 ```bash
-pip install smolagents[openai]
-python server.py
+git clone https://github.com/agentsincloud/agentsincloud.git
+cd agentsincloud
+cp .env.example .env   # edit with your OpenRouter key
+docker compose up -d
 ```
 
-## API
+Your agents API is now running at `http://localhost:4000`.
 
-### `GET /health`
-```json
-{"status": "ok", "service": "smol-cloud"}
+## What You Get
+
+- **Agent Engine** -- smolagents-powered execution engine with tool calling and streaming
+- **Container Manager** -- Docker-based sandboxed environments for each agent session
+- **API Gateway** -- REST + SSE API with auth, templates, and usage tracking
+- **Chat UI** -- browser-based interface to interact with your agents
+- **Template System** -- prebuilt agent configs (coding assistant, data analyst, etc.)
+- **Any LLM** -- use any model via OpenRouter (GPT-4o, Claude, Llama, Gemini, etc.)
+
+## API Example
+
+List available agents:
+
+```bash
+curl http://localhost:4000/api/agents \
+  -H "Authorization: Bearer $AIC_SECRET"
 ```
 
-### `POST /run` → SSE stream
-```json
-{
-  "api_key": "sk-or-v1-...",
-  "model": "openai/gpt-4o-mini",
-  "system_prompt": "You are a helpful assistant.",
-  "input": "List files in /home/user",
-  "container": "agentify-user-abc123"
-}
+Run an agent:
+
+```bash
+curl http://localhost:4000/api/agents/run \
+  -H "Authorization: Bearer $AIC_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"template": "coding", "input": "Create a hello world HTTP server"}'
 ```
 
-**SSE Events:**
-| Event | Data |
-|-------|------|
-| `run.started` | `{ type, model }` |
-| `agent.tool_use` | `{ tool, input }` |
-| `agent.tool_result` | `{ tool, output }` |
-| `agent.text` | `{ text }` |
-| `run.completed` | `{ model, steps }` |
-| `run.error` | `{ error }` |
+## Architecture
 
-## Built-in Tools
-
-| Tool | Description |
-|------|-------------|
-| `shell_exec` | Execute shell commands in the container |
-| `file_read` | Read files from the container |
-| `file_write` | Write files to the container |
-| `list_files` | List directory contents |
-| `web_search` | Search the web via DuckDuckGo |
-
-## Environment Variables
-
-| Var | Default | Description |
-|-----|---------|-------------|
-| `CLOUD_API_URL` | `http://127.0.0.1:9090` | Container Manager API URL |
-| `CLOUD_API_SECRET` | — | Container Manager auth key |
-| `SMOLAGENT_PORT` | `8200` | Port to listen on |
-
-## Systemd Service
-
-```ini
-[Unit]
-Description=Smol Cloud Managed Agents
-After=network.target
-
-[Service]
-Type=simple
-WorkingDirectory=/opt/smol-cloud
-ExecStart=/usr/bin/python3 server.py
-Environment=CLOUD_API_URL=http://127.0.0.1:9090
-Environment=CLOUD_API_SECRET=your-secret
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
+```
+chat (port 3000) --> gateway (port 4000) --> engine (port 8200)
+                                         --> containers (port 9090)
 ```
 
-## Supported Models (via OpenRouter)
+## Documentation
 
-Any model on OpenRouter: GPT-4o, Claude, Llama 3, Mistral, Gemini, Qwen, DeepSeek, etc.
+- [Implementation Plan](docs/implementation-plan.md)
+- [Product Design](docs/product-design.md)
 
 ## License
 
-MIT
+[MIT](LICENSE)
