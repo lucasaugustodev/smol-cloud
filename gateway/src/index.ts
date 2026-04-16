@@ -82,8 +82,10 @@ app.use((_req, res, next) => {
   next();
 });
 
-// Routes — no auth
+// Routes — no auth (public read)
 app.use("/api/health", healthRouter);
+app.get("/api/agents", agentsRouter);
+app.get("/api/agents/:idOrSlug", agentsRouter);
 
 // Routes — auth required
 app.use("/api/agents", authMiddleware, agentsRouter);
