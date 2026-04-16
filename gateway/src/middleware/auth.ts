@@ -44,3 +44,16 @@ export async function authMiddleware(
   (req as any).apiKeyId = found.id;
   next();
 }
+
+/** Optional auth — allows unauthenticated GET requests through */
+export async function optionalAuthMiddleware(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  if (req.method === "GET") {
+    next();
+    return;
+  }
+  return authMiddleware(req, res, next);
+}

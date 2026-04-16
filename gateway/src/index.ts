@@ -4,7 +4,7 @@ import express from "express";
 import { nanoid } from "nanoid";
 import { db } from "./db/sqlite.js";
 import { agents } from "./db/schema.js";
-import { authMiddleware } from "./middleware/auth.js";
+import { authMiddleware, optionalAuthMiddleware } from "./middleware/auth.js";
 import { healthRouter } from "./routes/health.js";
 import { agentsRouter } from "./routes/agents.js";
 import { keysRouter } from "./routes/keys.js";
@@ -82,13 +82,11 @@ app.use((_req, res, next) => {
   next();
 });
 
-// Routes — no auth (public read)
+// Routes — no auth
 app.use("/api/health", healthRouter);
-app.get("/api/agents", agentsRouter);
-app.get("/api/agents/:idOrSlug", agentsRouter);
 
-// Routes — auth required
-app.use("/api/agents", authMiddleware, agentsRouter);
+// Routes — agents (GET public, POST/PUT/DELETE require auth)
+app.use("/api/agents", optionalAuthMiddleware, agentsRouter);
 app.use("/api/agents", authMiddleware, agentRunRouter);
 app.use("/api/keys", authMiddleware, keysRouter);
 app.use("/api/runs", authMiddleware, runsHistoryRouter);
