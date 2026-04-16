@@ -15,7 +15,7 @@ export const router = Router();
 
 /** Extract container name from route params (Express v5 types). */
 function paramName(req: Request): string {
-  return paramName(req) as string;
+  return req.params.name as string;
 }
 
 // Health endpoint (no auth)
