@@ -1,0 +1,25 @@
+{
+  "name": "agentsincloud",
+  "version": "0.1.0",
+  "description": "Agents in Cloud CLI — AI agent infrastructure in one command",
+  "type": "module",
+  "bin": {
+    "agentsincloud": "./dist/bin/agentsincloud.js"
+  },
+  "scripts": {
+    "dev": "tsx bin/agentsincloud.ts",
+    "build": "tsc",
+    "start": "node dist/bin/agentsincloud.js"
+  },
+  "dependencies": {
+    "commander": "^13.1.0",
+    "chalk": "^5.4.1",
+    "ora": "^8.2.0",
+    "inquirer": "^12.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.2",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}
