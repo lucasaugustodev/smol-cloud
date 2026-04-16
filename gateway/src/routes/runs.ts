@@ -15,7 +15,9 @@ const AIC_SECRET = process.env.AIC_SECRET || "";
  * Checks via GET /containers, creates via POST /containers if missing.
  */
 async function ensureContainer(slug: string): Promise<string> {
-  const containerName = `aic-agent-${slug}`;
+  // Container manager adds "aic-" prefix, so the final name is "aic-agent-{slug}"
+  const baseName = `agent-${slug}`;
+  const fullName = `aic-${baseName}`;
 
   try {
     const listRes = await fetch(`${CONTAINERS_URL}/containers`, {
@@ -25,9 +27,9 @@ async function ensureContainer(slug: string): Promise<string> {
     if (listRes.ok) {
       const containers: any[] = await listRes.json();
       const exists = containers.some(
-        (c: any) => c.name === containerName || c.Names?.includes(`/${containerName}`),
+        (c: any) => c.name === fullName || c.name === `/${fullName}`,
       );
-      if (exists) return containerName;
+      if (exists) return fullName;
     }
   } catch {
     // Fall through to create
@@ -39,7 +41,7 @@ async function ensureContainer(slug: string): Promise<string> {
       "Content-Type": "application/json",
       "x-api-key": AIC_SECRET,
     },
-    body: JSON.stringify({ name: containerName }),
+    body: JSON.stringify({ name: baseName }),
   });
 
   if (!createRes.ok) {
@@ -47,7 +49,7 @@ async function ensureContainer(slug: string): Promise<string> {
     throw new Error(`Failed to create container: ${err}`);
   }
 
-  return containerName;
+  return fullName;
 }
 
 // --- Agent run routes (mounted under /api/agents) ---
