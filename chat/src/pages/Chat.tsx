@@ -74,34 +74,46 @@ export default function Chat() {
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
 
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
+        // Split into SSE blocks (separated by double newline)
+        const blocks = buffer.split("\n\n");
+        buffer = blocks.pop() ?? "";
 
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const raw = line.slice(6).trim();
-          if (!raw || raw === "[DONE]") continue;
+        for (const block of blocks) {
+          if (!block.trim()) continue;
 
-          let event: { type: string; text?: string; tool_use_id?: string; name?: string; input?: string; output?: string };
+          // Parse SSE: extract "event:" and "data:" lines
+          let eventType = "";
+          let dataStr = "";
+          for (const line of block.split("\n")) {
+            if (line.startsWith("event: ")) eventType = line.slice(7).trim();
+            else if (line.startsWith("data: ")) dataStr = line.slice(6).trim();
+          }
+
+          if (!dataStr || dataStr === "[DONE]") continue;
+
+          let data: any;
           try {
-            event = JSON.parse(raw);
+            data = JSON.parse(dataStr);
           } catch {
             continue;
           }
 
-          switch (event.type) {
+          // Use event: line as type, fallback to data.type
+          const type = eventType || data.type || "";
+
+          switch (type) {
             case "agent.text":
               if (!agentMsgId) {
                 agentMsgId = nextId();
                 setMessages((prev) => [
                   ...prev,
-                  { id: agentMsgId, role: "agent", text: event.text ?? "" },
+                  { id: agentMsgId, role: "agent", text: data.text ?? "" },
                 ]);
               } else {
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === agentMsgId
-                      ? { ...m, text: m.text + (event.text ?? "") }
+                      ? { ...m, text: m.text + (data.text ?? "") }
                       : m,
                   ),
                 );
@@ -109,13 +121,13 @@ export default function Chat() {
               break;
 
             case "agent.tool_use": {
-              const tid = event.tool_use_id ?? nextId();
+              const tid = data.tool_use_id ?? nextId();
               setTools((prev) => {
                 const next = new Map(prev);
                 next.set(tid, {
                   id: tid,
-                  name: event.name ?? "tool",
-                  input: event.input ?? "",
+                  name: data.tool ?? data.name ?? "tool",
+                  input: typeof data.input === "string" ? data.input : JSON.stringify(data.input ?? ""),
                   done: false,
                 });
                 return next;
@@ -124,14 +136,14 @@ export default function Chat() {
             }
 
             case "agent.tool_result": {
-              const tid = event.tool_use_id ?? "";
+              const tid = data.tool_use_id ?? "";
               setTools((prev) => {
                 const next = new Map(prev);
                 const existing = next.get(tid);
                 if (existing) {
                   next.set(tid, {
                     ...existing,
-                    output: event.output ?? event.text ?? "",
+                    output: data.output ?? data.text ?? "",
                     done: true,
                   });
                 }
@@ -143,6 +155,12 @@ export default function Chat() {
             case "run.completed":
             case "run.error":
               setRunning(false);
+              if (data.error) {
+                setMessages((prev) => [
+                  ...prev,
+                  { id: nextId(), role: "agent", text: `Error: ${data.error}` },
+                ]);
+              }
               break;
           }
         }
