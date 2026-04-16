@@ -13,7 +13,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/agents", { headers: { "x-api-key": "demo" } })
+    fetch("/api/agents")
       .then((r) => r.json())
       .then((data) => setAgents(data))
       .catch(() => setAgents([]))

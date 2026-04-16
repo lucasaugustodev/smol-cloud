@@ -36,7 +36,7 @@ export default function Chat() {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetch(`/api/agents/${slug}`, { headers: { "x-api-key": "demo" } })
+    fetch(`/api/agents/${slug}`)
       .then((r) => r.json())
       .then(setAgent)
       .catch(() => {});
@@ -60,10 +60,7 @@ export default function Chat() {
     try {
       const res = await fetch(`/api/agents/${slug}/run`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": "demo",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ input: text }),
       });
 
