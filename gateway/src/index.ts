@@ -87,7 +87,7 @@ app.use("/api/health", healthRouter);
 
 // Routes — agents (GET public, POST/PUT/DELETE require auth)
 app.use("/api/agents", optionalAuthMiddleware, agentsRouter);
-app.use("/api/agents", authMiddleware, agentRunRouter);
+app.use("/api/agents", optionalAuthMiddleware, agentRunRouter);
 app.use("/api/keys", authMiddleware, keysRouter);
 app.use("/api/runs", authMiddleware, runsHistoryRouter);
 

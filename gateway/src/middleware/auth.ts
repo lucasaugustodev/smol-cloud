@@ -45,13 +45,14 @@ export async function authMiddleware(
   next();
 }
 
-/** Optional auth — allows unauthenticated GET requests through */
+/** Optional auth — passes through if no key provided, validates if present */
 export async function optionalAuthMiddleware(
   req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> {
-  if (req.method === "GET") {
+  const key = req.headers["x-api-key"] as string | undefined;
+  if (!key) {
     next();
     return;
   }
